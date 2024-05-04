@@ -119,7 +119,7 @@ def create_task(group):
         return
     parts = ""
     annotations: None | list[str] = None
-    for name, field in tw_config["add_templates"]["data"][0]["fields"].items():
+    for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
         value = answers.get(name, "")
         if len(value) != 0 or answers[name] != " ":
             if name in "annotations":
@@ -128,7 +128,7 @@ def create_task(group):
                 parts += " " + " ".join(
                     field.replace("%s", item) if item != "" else "" for item in answers[name].split(";")
                 )
-    command = tw_config["add_templates"]["data"][0]["command"].replace("%s", parts)
+    command = tw_config["add_templates"]["data"][chosen_template]["command"].replace("%s", parts)
     confirm = safe_ask(questionary.confirm("Add task?", instruction=f"\n{command}\n", style=question_style))
     if confirm:
         uuid_compiled = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
