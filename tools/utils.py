@@ -1,7 +1,7 @@
 import json
 import re
 import subprocess
-from typing import Annotated
+from typing import Annotated, Callable, TypedDict
 
 import questionary
 import typer
@@ -35,6 +35,11 @@ preset_questions = {
         "Enter tags", choices=tags, style=question_style, complete_style=CompleteStyle.MULTI_COLUMN
     ),
 }
+
+
+class FunctionsGroup(TypedDict):
+    func: Callable
+    help: str
 
 
 def safe_ask(question):
@@ -146,7 +151,7 @@ def create_task(group):
                     )
 
 
-create_groups = {
+create_groups: dict[str, FunctionsGroup] = {
     "task": {"help": "Add a new task based on template", "func": create_task},
     "template": {"help": "Add a new task template", "func": create_template},
     "query": {"help": "Add a new query for viewing tasks", "func": create_query},
@@ -252,7 +257,7 @@ def edit_query():
             f.write(json.dumps(tw_config))
 
 
-edit_groups = {
+edit_groups: dict[str, FunctionsGroup] = {
     "template": {"help": "Edit task template", "func": edit_template},
     "query": {"help": "Edit view query", "func": edit_query},
 }
@@ -311,7 +316,7 @@ def view_template():
         rprint(f"{name.ljust(16)} | {field_template}")
 
 
-view_groups = {
+view_groups: dict[str, FunctionsGroup] = {
     "task": {"help": "View tasks based on saved queries", "func": view_task},
     "template": {"help": "View the details of the template", "func": view_template},
 }

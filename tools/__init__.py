@@ -3,10 +3,10 @@ import os
 
 config_file = os.environ.get("TW_CONFIG", f'{os.path.expanduser("~")}/.local/share/nvim/m_taskwarrior_d.json')
 if os.path.isfile(config_file):
-    with open(config_file) as f:
+    with open(config_file, 'r') as f:
         tw_config = json.load(f)
 else:
-    with open(config_file) as f:
+    with open(config_file, 'w') as f:
         tw_config = {
             "use_mtwd": False,
             "flow_config": {"default": {"data": "~/.task", "config": "~/.taskrc"}},
