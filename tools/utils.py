@@ -8,7 +8,7 @@ import typer
 from prompt_toolkit.shortcuts import CompleteStyle
 from rich import print as rprint
 
-from tools import config_file, group_mappings, tw_config, group_mappings_completion
+from tools import config_file, group_mappings, group_mappings_completion, tw_config
 
 utils = typer.Typer()
 question_style = questionary.Style(
@@ -42,16 +42,20 @@ def safe_ask(question):
         response = question.unsafe_ask()
         return response
     except KeyboardInterrupt:
-        print('Cancelled by user')
+        print("Cancelled by user")
         return None
 
 
 def create_query(*_):
-    query_instruction = "Use '|' for separate the filter and the report\ni.e. `project:TW | next`\n" if tw_config["use_mtwd"] else None
-    response = safe_ask(questionary.form(
-        name=questionary.text("Enter name", style=question_style),
-        query=questionary.text("Enter query", style=question_style, instruction=query_instruction),
-    ))
+    query_instruction = (
+        "Use '|' for separate the filter and the report\ni.e. `project:TW | next`\n" if tw_config["use_mtwd"] else None
+    )
+    response = safe_ask(
+        questionary.form(
+            name=questionary.text("Enter name", style=question_style),
+            query=questionary.text("Enter query", style=question_style, instruction=query_instruction),
+        )
+    )
     if response is None:
         return
     if response["name"] != "" and response["query"] != "":
@@ -63,10 +67,12 @@ def create_query(*_):
 
 
 def create_template(*_):
-    response = safe_ask(questionary.form(
-        name=questionary.text("Enter name", style=question_style),
-        command=questionary.text("Enter command", style=question_style),
-    ))
+    response = safe_ask(
+        questionary.form(
+            name=questionary.text("Enter name", style=question_style),
+            command=questionary.text("Enter command", style=question_style),
+        )
+    )
     if response is None:
         return
     template = {"name": response["name"], "command": response["command"], "fields": {}}
@@ -92,9 +98,9 @@ def create_task(group):
         questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
         for index, template in enumerate(tw_config["add_templates"]["data"])
     ]
-    chosen_template = safe_ask(questionary.rawselect(
-        "Select template", choices=templates, use_jk_keys=True, style=question_style
-    ))
+    chosen_template = safe_ask(
+        questionary.rawselect("Select template", choices=templates, use_jk_keys=True, style=question_style)
+    )
     if chosen_template is None:
         return
     questions = {}
@@ -140,13 +146,17 @@ def create_task(group):
                     )
 
 
-create_groups = {"task": {"help": "Add a new task based on template", "func": create_task}, "template": {"help": "Add a new task template", "func": create_template}, "query": {"help": "Add a new query for viewing tasks", "func": create_query}}
+create_groups = {
+    "task": {"help": "Add a new task based on template", "func": create_task},
+    "template": {"help": "Add a new task template", "func": create_template},
+    "query": {"help": "Add a new query for viewing tasks", "func": create_query},
+}
 
 
 def create_group_completion():
     autocompletions = []
     for key, value in create_groups.items():
-        autocompletions.append((key, value['help']))
+        autocompletions.append((key, value["help"]))
     return autocompletions
 
 
@@ -155,7 +165,7 @@ def task_create(
     name: Annotated[str, typer.Argument(autocompletion=create_group_completion)] = "task",
     group: Annotated[str, typer.Option("--group", "-g", autocompletion=group_mappings_completion)] = "default",
 ):
-    create_groups[name]['func'](group)
+    create_groups[name]["func"](group)
 
 
 def edit_template():
@@ -163,29 +173,33 @@ def edit_template():
         questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
         for index, template in enumerate(tw_config["add_templates"]["data"])
     ]
-    chosen_template = safe_ask(questionary.rawselect(
-        "Select template", choices=templates, use_jk_keys=True, style=question_style
-    ))
+    chosen_template = safe_ask(
+        questionary.rawselect("Select template", choices=templates, use_jk_keys=True, style=question_style)
+    )
     if chosen_template is None:
         return
-    response = safe_ask(questionary.form(
-        name=questionary.text(
-            "Enter name", style=question_style, default=tw_config["add_templates"]["data"][chosen_template]["name"]
-        ),
-        command=questionary.text(
-            "Enter command",
-            style=question_style,
-            default=tw_config["add_templates"]["data"][chosen_template]["command"],
-        ),
-    ))
+    response = safe_ask(
+        questionary.form(
+            name=questionary.text(
+                "Enter name", style=question_style, default=tw_config["add_templates"]["data"][chosen_template]["name"]
+            ),
+            command=questionary.text(
+                "Enter command",
+                style=question_style,
+                default=tw_config["add_templates"]["data"][chosen_template]["command"],
+            ),
+        )
+    )
     if response is None:
         return
     template = {"name": response["name"], "command": response["command"], "fields": {}}
     for name, field_template in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
-        response = safe_ask(questionary.form(
-            name=questionary.text("Enter field name", style=question_style, default=name),
-            template=questionary.text("Enter field template", style=question_style, default=field_template),
-        ))
+        response = safe_ask(
+            questionary.form(
+                name=questionary.text("Enter field name", style=question_style, default=name),
+                template=questionary.text("Enter field template", style=question_style, default=field_template),
+            )
+        )
         if response is None:
             return
         template["fields"][response["name"]] = response["template"]
@@ -213,17 +227,21 @@ def edit_query():
         )
         for index, query in enumerate(tw_config["saved_queries"]["data"])
     ]
-    chosen_query = safe_ask(questionary.rawselect("Select query", choices=queries, use_jk_keys=True, style=question_style))
+    chosen_query = safe_ask(
+        questionary.rawselect("Select query", choices=queries, use_jk_keys=True, style=question_style)
+    )
     if chosen_query is None:
         return
-    response = safe_ask(questionary.form(
-        name=questionary.text(
-            "Enter name", style=question_style, default=tw_config["saved_queries"]["data"][chosen_query]["name"]
-        ),
-        query=questionary.text(
-            "Enter query", style=question_style, default=tw_config["saved_queries"]["data"][chosen_query]["query"]
-        ),
-    ))
+    response = safe_ask(
+        questionary.form(
+            name=questionary.text(
+                "Enter name", style=question_style, default=tw_config["saved_queries"]["data"][chosen_query]["name"]
+            ),
+            query=questionary.text(
+                "Enter query", style=question_style, default=tw_config["saved_queries"]["data"][chosen_query]["query"]
+            ),
+        )
+    )
     if response is None:
         return
     if response["name"] != "" and response["query"] != "":
@@ -234,7 +252,10 @@ def edit_query():
             f.write(json.dumps(tw_config))
 
 
-edit_groups = {"template": {"help": "Edit task template", "func": edit_template}, "query": {"help": "Edit view query", "func": edit_query}}
+edit_groups = {
+    "template": {"help": "Edit task template", "func": edit_template},
+    "query": {"help": "Edit view query", "func": edit_query},
+}
 
 
 def edit_group_completion():
@@ -248,7 +269,7 @@ def edit_group_completion():
 def task_edit(
     name: Annotated[str, typer.Argument(autocompletion=edit_group_completion)] = "template",
 ):
-    edit_groups[name]['func']()
+    edit_groups[name]["func"]()
 
 
 def view_task():
@@ -259,7 +280,9 @@ def view_task():
         )
         for index, query in enumerate(tw_config["saved_queries"]["data"])
     ]
-    chosen_query = safe_ask(questionary.rawselect("Select query", choices=queries, use_jk_keys=True, style=question_style))
+    chosen_query = safe_ask(
+        questionary.rawselect("Select query", choices=queries, use_jk_keys=True, style=question_style)
+    )
     if chosen_query is None:
         return
     command = tw_config["saved_queries"]["data"][chosen_query]["query"].replace("|", " ")
@@ -272,9 +295,9 @@ def view_template():
         questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
         for index, template in enumerate(tw_config["add_templates"]["data"])
     ]
-    chosen_template = safe_ask(questionary.rawselect(
-        "Select template", choices=templates, use_jk_keys=True, style=question_style
-    ))
+    chosen_template = safe_ask(
+        questionary.rawselect("Select template", choices=templates, use_jk_keys=True, style=question_style)
+    )
     if chosen_template is None:
         return
     header = f'[bold]Template:[/bold] {tw_config["add_templates"]["data"][chosen_template]["name"]}'
@@ -288,13 +311,16 @@ def view_template():
         rprint(f"{name.ljust(16)} | {field_template}")
 
 
-view_groups = {"task": {"help": "View tasks based on saved queries", "func": view_task}, "template": {"help": "View the details of the template", "func": view_template}}
+view_groups = {
+    "task": {"help": "View tasks based on saved queries", "func": view_task},
+    "template": {"help": "View the details of the template", "func": view_template},
+}
 
 
 def view_group_completion():
     autocompletions = []
     for key, value in view_groups.items():
-        autocompletions.append((key, value['help']))
+        autocompletions.append((key, value["help"]))
     return autocompletions
 
 
@@ -302,4 +328,4 @@ def view_group_completion():
 def task_view(
     name: Annotated[str, typer.Argument(autocompletion=view_group_completion)] = "task",
 ):
-    view_groups[name]['func']()
+    view_groups[name]["func"]()
