@@ -9,7 +9,7 @@ else:
     with open(config_file, 'w') as f:
         tw_config = {
             "use_mtwd": False,
-            "flow_config": {"default": {"data": "~/.task", "config": "~/.taskrc"}},
+            "flow_config": {"task": {"data": "~/.task", "config": "~/.taskrc"}},
             "add_templates": {"data": []},
             "saved_queries": {"name_max_length": 0, "data": []},
         }
