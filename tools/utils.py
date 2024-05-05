@@ -1,5 +1,7 @@
 import json
+import os
 import re
+import shutil
 import subprocess
 from typing import Annotated, Callable, TypedDict
 
@@ -152,17 +154,18 @@ def create_task(group):
                     )
 
 
-def create_group():
+def create_group(*_):
     result = safe_ask(
         questionary.form(
             name=questionary.text("Enter name", style=question_style),
-            data_location=questionary.text("Enter data location", style=question_style),
+            data=questionary.text("Enter data location", style=question_style),
+            config=questionary.text("Enter config location", style=question_style),
         )
     )
     if result is None:
         return
-    if result["name"] != "" and result["data_location"] != "":
-        tw_config["flow_config"].update({result["name"]: result["data_location"]})
+    if result["name"] != "" and result["data"] != "" and result["config"] != "":
+        tw_config["flow_config"].update({result["name"]: {'data': result["data"], 'config': result["config"]}})
     with open(config_file, "w") as f:
         f.write(json.dumps(tw_config))
 
@@ -392,3 +395,110 @@ def task_view(
     name: Annotated[str, typer.Argument(autocompletion=view_group_completion)] = "task",
 ):
     view_groups[name]["func"]()
+
+
+def delete_template():
+    templates = [
+        questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
+        for index, template in enumerate(tw_config["add_templates"]["data"])
+    ]
+    chosen_template = safe_ask(
+        questionary.rawselect("Select template", choices=templates, use_jk_keys=True, style=question_style)
+    )
+    if chosen_template is None:
+        return
+    confirm = safe_ask(
+        questionary.confirm(
+            f"Delete template {tw_config['add_templates']['data'][chosen_template]['name']}", style=question_style
+        )
+    )
+    if confirm:
+        tw_config["add_templates"]["data"].pop(chosen_template)
+        with open(config_file, "w") as f:
+            f.write(json.dumps(tw_config))
+
+
+def delete_query():
+    pass
+    max_length = tw_config["saved_queries"]["name_max_length"]
+    queries = [
+        questionary.Choice(
+            title=f"{query['name'].ljust(max_length)} | {query['query']}", value=index, shortcut_key=str(index + 1)
+        )
+        for index, query in enumerate(tw_config["saved_queries"]["data"])
+    ]
+    chosen_query = safe_ask(
+        questionary.rawselect("Select query", choices=queries, use_jk_keys=True, style=question_style)
+    )
+    if chosen_query is None:
+        return
+    confirm = safe_ask(
+        questionary.confirm(
+            f"Delete query {tw_config['saved_queries']['data'][chosen_query]['name']}", style=question_style
+        )
+    )
+    if confirm:
+        tw_config["saved_queries"]["data"].pop(chosen_query)
+        for query in tw_config["saved_queries"]["data"]:
+            if max_length < len(query["name"]):
+                max_length = len(query["name"])
+        tw_config["saved_queries"]["name_max_length"] = max_length
+
+        with open(config_file, "w") as f:
+            f.write(json.dumps(tw_config))
+
+
+def delete_group():
+    groups = [
+        questionary.Choice(
+            title=f"{group_name}\nData: {group_config['data']}\nConfig: {group_config['config']}",
+            value=group_name,
+            shortcut_key=str(index + 1),
+        )
+        for index, (group_name, group_config) in enumerate(tw_config["flow_config"].items())
+    ]
+
+    chosen_group = safe_ask(
+        questionary.rawselect("Select group", choices=groups, use_jk_keys=True, style=question_style)
+    )
+
+    if chosen_group is None:
+        return
+    confirm = safe_ask(questionary.confirm(f"Delete group {chosen_group}?", style=question_style))
+    if confirm:
+        deleted_group = tw_config["flow_config"].pop(chosen_group)
+        with open(config_file, "w") as f:
+            f.write(json.dumps(tw_config))
+        data_confirm = safe_ask(
+            questionary.confirm(f"Delete data location {deleted_group['data']}", style=question_style)
+        )
+        if data_confirm:
+            data_path = deleted_group["data"].replace("~", os.path.expanduser("~"))
+            if os.path.isdir(data_path):
+                shutil.rmtree(data_path)
+        config_confirm = safe_ask(
+            questionary.confirm(f"Delete config location {deleted_group['config']}", style=question_style)
+        )
+        if config_confirm:
+            config_path = deleted_group["config"].replace("~", os.path.expanduser("~"))
+            if os.path.isfile(config_path):
+                shutil.rmtree(config_path)
+
+
+delete_groups: dict[str, FunctionsGroup] = {
+    "template": {"help": "Delete template", "func": delete_template},
+    "query": {"help": "Delete query", "func": delete_query},
+    "group": {"help": "Delete group", "func": delete_group},
+}
+
+
+def delete_group_completion():
+    auto_completions = []
+    for key, value in delete_groups.items():
+        auto_completions.append((key, value["help"]))
+    return auto_completions
+
+
+@utils.command("delete", help="Delete task, query, template, and group")
+def task_delete(name: Annotated[str, typer.Argument(autocompletion=edit_group_completion)] = "template"):
+    delete_groups[name]["func"]()
