@@ -152,24 +152,40 @@ def create_task(group):
                     )
 
 
+def create_group():
+    result = safe_ask(
+        questionary.form(
+            name=questionary.text("Enter name", style=question_style),
+            data_location=questionary.text("Enter data location", style=question_style),
+        )
+    )
+    if result is None:
+        return
+    if result["name"] != "" and result["data_location"] != "":
+        tw_config["flow_config"].update({result["name"]: result["data_location"]})
+    with open(config_file, "w") as f:
+        f.write(json.dumps(tw_config))
+
+
 create_groups: dict[str, FunctionsGroup] = {
     "task": {"help": "Add a new task based on template", "func": create_task},
     "template": {"help": "Add a new task template", "func": create_template},
     "query": {"help": "Add a new query for viewing tasks", "func": create_query},
+    "group": {"help": "Add a new group of tasks", "func": create_group},
 }
 
 
 def create_group_completion():
-    autocompletions = []
+    auto_completions = []
     for key, value in create_groups.items():
-        autocompletions.append((key, value["help"]))
-    return autocompletions
+        auto_completions.append((key, value["help"]))
+    return auto_completions
 
 
 @utils.command("add", help="Add task, query, and template")
 def task_create(
     name: Annotated[str, typer.Argument(autocompletion=create_group_completion)] = "task",
-    group: Annotated[str, typer.Option("--group", "-g", autocompletion=group_mappings_completion)] = "default",
+    group: Annotated[str, typer.Option("--group", "-g", autocompletion=group_mappings_completion)] = "task",
 ):
     create_groups[name]["func"](group)
 
@@ -258,17 +274,58 @@ def edit_query():
             f.write(json.dumps(tw_config))
 
 
+def edit_group():
+    groups = [
+        questionary.Choice(
+            title=f"{group_name}\nData: {group_config['data']}\nConfig: {group_config['config']}",
+            value=group_name,
+            shortcut_key=str(index + 1),
+        )
+        for index, (group_name, group_config) in enumerate(tw_config["flow_config"].items())
+    ]
+
+    chosen_group = safe_ask(
+        questionary.rawselect("Select group", choices=groups, use_jk_keys=True, style=question_style)
+    )
+
+    if chosen_group is None:
+        return
+
+    response = safe_ask(
+        questionary.form(
+            name=questionary.text("Enter name", style=question_style, default=chosen_group),
+            data=questionary.text(
+                "Enter data location",
+                style=question_style,
+                default=tw_config["flow_config"][chosen_group]["data"],
+            ),
+            config=questionary.text(
+                "Enter config location",
+                style=question_style,
+                default=tw_config["flow_config"][chosen_group]["config"],
+            ),
+        )
+    )
+    if response is None:
+        return
+    if response["name"] != "" and response["data"] != "" and response["config"] != "":
+        tw_config["flow_config"][response["name"]] = {"data": response["data"], "config": response["config"]}
+        with open(config_file, "w") as f:
+            f.write(json.dumps(tw_config))
+
+
 edit_groups: dict[str, FunctionsGroup] = {
     "template": {"help": "Edit task template", "func": edit_template},
     "query": {"help": "Edit view query", "func": edit_query},
+    "group": {"help": "Edit group of tasks", "func": edit_group},
 }
 
 
 def edit_group_completion():
-    autocompletions = []
+    auto_completions = []
     for group, group_info in edit_groups.items():
-        autocompletions.append((group, group_info["help"]))
-    return autocompletions
+        auto_completions.append((group, group_info["help"]))
+    return auto_completions
 
 
 @utils.command("edit", help="Edit query, and template")
@@ -324,10 +381,10 @@ view_groups: dict[str, FunctionsGroup] = {
 
 
 def view_group_completion():
-    autocompletions = []
+    auto_completions = []
     for key, value in view_groups.items():
-        autocompletions.append((key, value["help"]))
-    return autocompletions
+        auto_completions.append((key, value["help"]))
+    return auto_completions
 
 
 @utils.command("view", help="View task and template")
