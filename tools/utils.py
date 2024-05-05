@@ -138,13 +138,14 @@ def create_task(group):
             text=True,
             shell=True,
         )
+        print(result.stdout)
         uuid_match = uuid_compiled.search(result.stdout)
         if uuid_match:
             uuid = uuid_match.group()
             if annotations:
                 for annotate in annotations:
                     result = subprocess.run(
-                        f"TASKDATA=~/.task_test /opt/homebrew/bin/task {uuid} annotate {annotate}",
+                        f"{group_mappings[group]} task {uuid} annotate {annotate}",
                         capture_output=True,
                         text=True,
                         shell=True,
