@@ -1,27 +1,28 @@
 import subprocess
-from typing import Annotated
 
 import typer
 
-from tools import group_mappings, group_mappings_completion
+from tools import group_mappings
 from tools.utils import utils
 
 app = typer.Typer()
 app.add_typer(utils, name="utils", help="Sub-commands for taskwarrior utilities")
 
 
-@app.command(context_settings={"allow_extra_args": True}, help="Run taskwarrior with the given data group")
-def task(
-    ctx: typer.Context,
-    group: Annotated[str, typer.Option("--group", "-g", autocompletion=group_mappings_completion)] = "default",
-):
+def task_wrapper(ctx: typer.Context):
     result = subprocess.run(
-        f"{group_mappings[group]} task rc._forcecolor:on {' '.join(ctx.args)}",
+        f"{group_mappings[ctx.command.name]} task rc._forcecolor:on {' '.join(ctx.args)}",
         shell=True,
         capture_output=True,
         text=True,
     )
     print(result.stdout)
+
+
+for group_name, _ in group_mappings.items():
+    app.command(
+        group_name, context_settings={"allow_extra_args": True}, help=f"Run taskwarrior with the {group_name} group"
+    )(task_wrapper)
 
 
 if __name__ == "__main__":
