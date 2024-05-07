@@ -27,7 +27,14 @@ Allow users to save templates that can be used to create tasks easily
 
 ### Multiple task groups
 
-Instead of having one task database (i.e. $HOME/.task/), using `twf task -g [GROUP]` will allow users to use different task databases (i.e. $HOME/.task_[GROUP])
+Instead of having one task database (i.e. $HOME/.task/), using `twf [GROUP] [Taskwarrior commands]` will allow users to use different task databases (i.e. $HOME/.task_[GROUP])
+
+### Natural date parsing
+
+Users can specify dates in natural language, such as "tomorrow", "next week", "last year", etc.
+
+- In the template, users can define fields to be date, this enables natural date parsing
+- In task group, users can use a special syntax to specify dates, such as `due:@tomorrow at 2pm@`
 
 ## Related tools
 
