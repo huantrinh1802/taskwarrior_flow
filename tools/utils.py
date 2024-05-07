@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from typing import Annotated, Callable, TypedDict
 
+import dateparser
 import questionary
 import typer
 from prompt_toolkit.shortcuts import CompleteStyle
@@ -42,6 +43,17 @@ preset_questions = {
 class FunctionsGroup(TypedDict):
     func: Callable
     help: str
+
+
+class DateValidator(questionary.Validator):
+    def validate(self, document):
+        if dateparser.parse(document.text) or len(document.text) == 0:
+            return True
+        else:
+            raise questionary.ValidationError(
+                message="Invalid date",
+                cursor_position=len(document.text),
+            )
 
 
 def safe_ask(question):
@@ -114,6 +126,8 @@ def create_task(group):
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
         if name in preset_questions:
             questions[name] = preset_questions[name]
+        elif name in tw_config['add_templates']['date_fields']:
+            questions[name] = questionary.text(f"Enter {name}", style=question_style, validate=DateValidator)
         else:
             questions[name] = questionary.text(f"Enter {name}", instruction="Use ';' for list\n", style=question_style)
     answers = safe_ask(questionary.form(**questions))
@@ -126,6 +140,11 @@ def create_task(group):
         if len(value) != 0 or answers[name] != " ":
             if name in "annotations":
                 annotations = [annotation for annotation in answers[name].split(";")]
+            elif name in tw_config['add_templates']['date_fields']:
+                date_str = dateparser.parse(answers[name])
+                if date_str is not None:
+                    date_str = date_str.strftime("%Y-%m-%dT%H:%M:%S")
+                    parts += " " + field.replace("%s", date_str)
             else:
                 parts += " " + " ".join(
                     field.replace("%s", item) if item != "" else "" for item in answers[name].split(";")
@@ -165,7 +184,7 @@ def create_group(*_):
     if result is None:
         return
     if result["name"] != "" and result["data"] != "" and result["config"] != "":
-        tw_config["flow_config"].update({result["name"]: {'data': result["data"], 'config': result["config"]}})
+        tw_config["flow_config"].update({result["name"]: {"data": result["data"], "config": result["config"]}})
     with open(config_file, "w") as f:
         f.write(json.dumps(tw_config))
 
