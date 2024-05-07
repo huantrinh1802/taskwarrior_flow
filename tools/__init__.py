@@ -3,14 +3,14 @@ import os
 
 config_file = os.environ.get("TW_CONFIG", f'{os.path.expanduser("~")}/.local/share/nvim/m_taskwarrior_d.json')
 if os.path.isfile(config_file):
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         tw_config = json.load(f)
 else:
-    with open(config_file, 'w') as f:
+    with open(config_file, "w") as f:
         tw_config = {
             "use_mtwd": False,
             "flow_config": {"task": {"data": "~/.task", "config": "~/.taskrc"}},
-            "add_templates": {"data": []},
+            "add_templates": {"date_fields": ["due", "scheduled"], "data": []},
             "saved_queries": {"name_max_length": 0, "data": []},
         }
         f.write(json.dumps(tw_config))
