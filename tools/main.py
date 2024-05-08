@@ -22,7 +22,6 @@ def task_wrapper(ctx: typer.Context):
     keywords = ["add", "mod", "delete"]
     keywords_seen = False
     for index, arg in enumerate(ctx.args):
-        print(arg)
         if arg in keywords and not keywords_seen:
             keywords_seen = True
         elif (

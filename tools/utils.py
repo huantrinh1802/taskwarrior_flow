@@ -372,7 +372,6 @@ def view_template():
         questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
         for index, template in enumerate(tw_config["add_templates"]["data"])
     ]
-    print(templates)
     chosen_template = safe_ask(
         questionary.rawselect("Select template", choices=templates, use_jk_keys=True, style=question_style)
     )
@@ -517,11 +516,8 @@ def task_delete(name: Annotated[str, typer.Argument(autocompletion=edit_group_co
 
 
 def get_preset_questions(group):
-    import time
-    start = time.time()
     projects = subprocess.run("task _projects", shell=True, capture_output=True).stdout.decode().split("\n")
     tags = subprocess.run("task _tags", shell=True, capture_output=True).stdout.decode().split("\n")
-    print(time.time() - start)
     return {
         "project": questionary.autocomplete(
             "Enter project", choices=projects, style=question_style, complete_style=CompleteStyle.MULTI_COLUMN

@@ -7,8 +7,12 @@ from tools.utils import get_preset_questions
 runner = CliRunner()
 
 
-@fixture
-def test_app():
+@fixture(autouse=True, scope="session")
+def setup_config():
     # TODO(BT): For some reason, this test require running get_preset_questions
     get_preset_questions(None)
+
+
+@fixture
+def test_app():
     return {"runner": runner, "app": app}
