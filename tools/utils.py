@@ -519,8 +519,8 @@ def task_delete(name: Annotated[str, typer.Argument(autocompletion=edit_group_co
 def get_preset_questions(group):
     import time
     start = time.time()
-    projects = subprocess.run(f"task _projects", shell=True, capture_output=True).stdout.decode().split("\n")
-    tags = subprocess.run(f"task _tags", shell=True, capture_output=True).stdout.decode().split("\n")
+    projects = subprocess.run("task _projects", shell=True, capture_output=True).stdout.decode().split("\n")
+    tags = subprocess.run("task _tags", shell=True, capture_output=True).stdout.decode().split("\n")
     print(time.time() - start)
     return {
         "project": questionary.autocomplete(
