@@ -13,7 +13,7 @@ from rich import print as rprint
 
 from tools import config_file, group_mappings, group_mappings_completion, tw_config
 
-utils = typer.Typer()
+utils_commands = typer.Typer()
 question_style = questionary.Style(
     [
         ("qmark", "fg:#007777 bold"),  # token in front of the question
@@ -28,16 +28,7 @@ question_style = questionary.Style(
         ("disabled", "fg:#858585 italic"),  # disabled choices for select and checkbox prompts
     ]
 )
-projects = subprocess.run("task _projects", shell=True, capture_output=True).stdout.decode().split("\n")
-tags = subprocess.run("task _tags", shell=True, capture_output=True).stdout.decode().split("\n")
-preset_questions = {
-    "project": questionary.autocomplete(
-        "Enter project", choices=projects, style=question_style, complete_style=CompleteStyle.MULTI_COLUMN
-    ),
-    "tags": questionary.autocomplete(
-        "Enter tags", choices=tags, style=question_style, complete_style=CompleteStyle.MULTI_COLUMN
-    ),
-}
+
 
 
 class FunctionsGroup(TypedDict):
@@ -123,10 +114,11 @@ def create_task(group):
     if chosen_template is None:
         return
     questions = {}
+    preset_questions = get_preset_questions(group)
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
         if name in preset_questions:
             questions[name] = preset_questions[name]
-        elif name in tw_config['add_templates']['date_fields']:
+        elif name in tw_config["add_templates"]["date_fields"]:
             questions[name] = questionary.text(f"Enter {name}", style=question_style, validate=DateValidator)
         else:
             questions[name] = questionary.text(f"Enter {name}", instruction="Use ';' for list\n", style=question_style)
@@ -140,7 +132,7 @@ def create_task(group):
         if len(value) != 0 or answers[name] != " ":
             if name in "annotations":
                 annotations = [annotation for annotation in answers[name].split(";")]
-            elif name in tw_config['add_templates']['date_fields']:
+            elif name in tw_config["add_templates"]["date_fields"]:
                 date_str = dateparser.parse(answers[name])
                 if date_str is not None:
                     date_str = date_str.strftime("%Y-%m-%dT%H:%M:%S")
@@ -204,7 +196,7 @@ def create_group_completion():
     return auto_completions
 
 
-@utils.command("add", help="Add task, query, and template")
+@utils_commands.command("add", help="Add task, query, and template")
 def task_create(
     name: Annotated[str, typer.Argument(autocompletion=create_group_completion)] = "task",
     group: Annotated[str, typer.Option("--group", "-g", autocompletion=group_mappings_completion)] = "task",
@@ -350,7 +342,7 @@ def edit_group_completion():
     return auto_completions
 
 
-@utils.command("edit", help="Edit query, and template")
+@utils_commands.command("edit", help="Edit query, and template")
 def task_edit(
     name: Annotated[str, typer.Argument(autocompletion=edit_group_completion)] = "template",
 ):
@@ -380,6 +372,7 @@ def view_template():
         questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
         for index, template in enumerate(tw_config["add_templates"]["data"])
     ]
+    print(templates)
     chosen_template = safe_ask(
         questionary.rawselect("Select template", choices=templates, use_jk_keys=True, style=question_style)
     )
@@ -409,7 +402,7 @@ def view_group_completion():
     return auto_completions
 
 
-@utils.command("view", help="View task and template")
+@utils_commands.command("view", help="View task and template")
 def task_view(
     name: Annotated[str, typer.Argument(autocompletion=view_group_completion)] = "task",
 ):
@@ -518,6 +511,23 @@ def delete_group_completion():
     return auto_completions
 
 
-@utils.command("delete", help="Delete task, query, template, and group")
+@utils_commands.command("delete", help="Delete task, query, template, and group")
 def task_delete(name: Annotated[str, typer.Argument(autocompletion=edit_group_completion)] = "template"):
     delete_groups[name]["func"]()
+
+
+def get_preset_questions(group):
+    import time
+    start = time.time()
+    projects = subprocess.run(f"task _projects", shell=True, capture_output=True).stdout.decode().split("\n")
+    tags = subprocess.run(f"task _tags", shell=True, capture_output=True).stdout.decode().split("\n")
+    print(time.time() - start)
+    return {
+        "project": questionary.autocomplete(
+            "Enter project", choices=projects, style=question_style, complete_style=CompleteStyle.MULTI_COLUMN
+        ),
+        "tags": questionary.autocomplete(
+            "Enter tags", choices=tags, style=question_style, complete_style=CompleteStyle.MULTI_COLUMN
+        ),
+    }
+
