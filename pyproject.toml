@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taskwarrior_flow"
-version = "0.3.1"
+version = "0.3.2"
 description = "Set of helpers for improving Taskwarrior workflow"
 authors = ["Ben Trinh <huantrinh1802@gmail.com>"]
 readme = "README.md"

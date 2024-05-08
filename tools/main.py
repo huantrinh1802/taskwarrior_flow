@@ -64,6 +64,9 @@ def task_wrapper(ctx: typer.Context):
                 if parsed:
                     parsed = parsed.strftime("%Y-%m-%dT%H:%M:%S")
                     arg = date_function_compiled.sub(parsed, func)
+                else:
+                    print(f"Invalid date format: {date_match.groupdict('date')['date']}")
+                    return
             func = ""
         # end of extract @date@
         command += " " + arg
