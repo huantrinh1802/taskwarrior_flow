@@ -6,10 +6,10 @@ import questionary
 import typer
 
 from tools import group_mappings
-from tools.utils import question_style, safe_ask, utils
+from tools.utils import question_style, safe_ask, utils_commands
 
 app = typer.Typer()
-app.add_typer(utils, name="utils", help="Sub-commands for taskwarrior utilities")
+app.add_typer(utils_commands, name="utils", help="Sub-commands for taskwarrior utilities")
 date_function_compiled = re.compile(r"@(?P<date>.*)@")
 
 
@@ -17,7 +17,36 @@ def task_wrapper(ctx: typer.Context):
     command = ""
     func_start = False
     func = ""
-    for arg in ctx.args:
+    description_start = False
+    description = ""
+    keywords = ["add", "mod", "delete"]
+    keywords_seen = False
+    for index, arg in enumerate(ctx.args):
+        print(arg)
+        if arg in keywords and not keywords_seen:
+            keywords_seen = True
+        elif (
+            index != len(ctx.args) - 1
+            and keywords_seen
+            and not func_start
+            and not arg.startswith(("+", "due:", "scheduled:", "wait:", "until:", "priority:", "recur:"))
+        ):
+            description_start = True
+            description += " " + arg
+            continue
+        elif keywords_seen and not func_start and description_start:
+            if index == len(ctx.args) - 1 and not arg.startswith(
+                ("+", "due:", "scheduled:", "wait:", "until:", "priority:", "recur:")
+            ):
+                description_start = False
+                description += " " + arg
+                description = description.lstrip(" ").rstrip(" ").replace("'", "").replace('"', "")
+                arg = f'"{description}"'
+            else:
+                description_start = False
+                description = description.lstrip(" ").rstrip(" ").replace("'", "").replace('"', "")
+                arg = f'"{description}" {arg}'
+        # Note(BT): extract @date@
         if ":@" in arg and not arg.endswith("@"):
             func_start = True
             func += arg
@@ -37,8 +66,12 @@ def task_wrapper(ctx: typer.Context):
                     parsed = parsed.strftime("%Y-%m-%dT%H:%M:%S")
                     arg = date_function_compiled.sub(parsed, func)
             func = ""
+        # end of extract @date@
         command += " " + arg
-    confirm = safe_ask(questionary.confirm("Add task?", instruction=f"\n{command}\n", style=question_style))
+    if any(keyword in command for keyword in ["add", "mod"]):
+        confirm = safe_ask(questionary.confirm("Confirm?", instruction=f"\n{command}\n", style=question_style))
+    else:
+        confirm = True
     if confirm:
         result = subprocess.run(
             f"{group_mappings[ctx.command.name]} task rc._forcecolor:on {command}",
