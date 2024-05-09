@@ -3,7 +3,8 @@ import os
 import re
 import shutil
 import subprocess
-from typing import Annotated, Callable, TypedDict
+from datetime import datetime
+from typing import Annotated, Callable, Literal, TypedDict
 
 import dateparser
 import questionary
@@ -28,7 +29,53 @@ question_style = questionary.Style(
         ("disabled", "fg:#858585 italic"),  # disabled choices for select and checkbox prompts
     ]
 )
+preset_questions = ["project", "tags"]
 
+
+def date_parser(date_str):
+    result = subprocess.run(f"task calc {date_str}", capture_output=True, text=True, shell=True)
+    if (
+        result.stderr
+        or result.stdout.replace("\n", "") == ""
+        or result.stdout.replace("\n", "") == date_str
+        or "P" in result.stdout
+    ):
+        parsed = dateparser.parse(date_str)
+        if parsed:
+            return parsed
+        else:
+            return None
+    else:
+        return datetime.fromisoformat(result.stdout.strip("\n"))
+
+
+def get_preset_questions(group, field):
+    projects = (
+        subprocess.run(f"{group_mappings[group]} task _projects", shell=True, capture_output=True)
+        .stdout.decode()
+        .split("\n")
+    )
+    tags = (
+        subprocess.run(f"{group_mappings[group]} task _tags", shell=True, capture_output=True)
+        .stdout.decode()
+        .split("\n")
+    )
+    match field:
+        case "project":
+            return questionary.autocomplete(
+                "Enter project",
+                choices=projects,
+                style=question_style,
+                complete_style=CompleteStyle.MULTI_COLUMN,
+            )
+        case "tags":
+            return questionary.autocomplete(
+                "Enter tags",
+                choices=tags,
+                style=question_style,
+                complete_style=CompleteStyle.MULTI_COLUMN,
+            )
+    return None
 
 
 class FunctionsGroup(TypedDict):
@@ -37,14 +84,23 @@ class FunctionsGroup(TypedDict):
 
 
 class DateValidator(questionary.Validator):
-    def validate(self, document):
-        if dateparser.parse(document.text) or len(document.text) == 0:
-            return True
+    def validate(self, document):  # type: ignore
+        result = subprocess.run(f"task calc {document.text}", capture_output=True, text=True, shell=True)
+        if (
+            result.stderr
+            or result.stdout == ""
+            or result.stdout.replace("\n", "") == document.text
+            or "P" in result.stdout
+        ):
+            if dateparser.parse(document.text) or len(document.text) == 0:
+                return True
+            else:
+                raise questionary.ValidationError(
+                    message="Invalid date",
+                    cursor_position=len(document.text),
+                )
         else:
-            raise questionary.ValidationError(
-                message="Invalid date",
-                cursor_position=len(document.text),
-            )
+            return True
 
 
 def safe_ask(question):
@@ -93,17 +149,28 @@ def create_template(*_):
         if field_name is None:
             return
         if field_name != "":
-            field_template = safe_ask(questionary.text("Enter field template", style=question_style))
-            if field_template is None:
+            field_form = safe_ask(
+                questionary.form(
+                    template=questionary.text("Enter field template", style=question_style),
+                    type=questionary.rawselect(
+                        "Select type of the field",
+                        choices=["text", "list", "date"],
+                        default="text",
+                        use_jk_keys=True,
+                        style=question_style,
+                    ),
+                )
+            )
+            if field_form is None:
                 return
-            template["fields"][field_name] = field_template
+            template["fields"][field_name] = {"template": field_form["template"], "type": field_form["type"]}
             print("To end enter nothing")
     with open(config_file, "w") as f:
         tw_config["add_templates"]["data"].append(template)
         f.write(json.dumps(tw_config))
 
 
-def create_task(group):
+def create_task(group, repeat: bool = False):
     templates = [
         questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
         for index, template in enumerate(tw_config["add_templates"]["data"])
@@ -113,34 +180,65 @@ def create_task(group):
     )
     if chosen_template is None:
         return
-    questions = {}
-    preset_questions = get_preset_questions(group)
+    answers = {}
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
-        if name in preset_questions:
-            questions[name] = preset_questions[name]
-        elif name in tw_config["add_templates"]["date_fields"]:
-            questions[name] = questionary.text(f"Enter {name}", style=question_style, validate=DateValidator)
+        if field["type"] == "list":
+            answer = "placeholder"
+            answers[name] = []
+            while answer != "" and answer is not None:
+                if name in preset_questions:
+                    answer = safe_ask(get_preset_questions(group, name))
+                else:
+                    answer = safe_ask(
+                        questionary.text(f"Enter {name}", style=question_style, instruction="Leave blank to stop\n")
+                    )
+                if answer is not None:
+                    if answer != "":
+                        answers[name].append(answer)
+                        questionary.print("Leave blank to stop", style="fg:#858585")
+                else:
+                    return
+        elif field["type"] == "date":
+            answer = safe_ask(questionary.text(f"Enter {name}", style=question_style, validate=DateValidator))
+            if answer is None:
+                return
+            answers[name] = answer
         else:
-            questions[name] = questionary.text(f"Enter {name}", instruction="Use ';' for list\n", style=question_style)
-    answers = safe_ask(questionary.form(**questions))
-    if answers is None:
+            if name in preset_questions:
+                answer = safe_ask(get_preset_questions(group, name))
+                if answer is None:
+                    return
+                answers[name] = answer
+            else:
+                answer = safe_ask(
+                    questionary.text(f"Enter {name}", style=question_style, instruction="Leave blank to stop\n")
+                )
+                if answer is None:
+                    return
+                answers[name] = answer
+    if len(answers) == 0:
         return
     parts = ""
     annotations: None | list[str] = None
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
         value = answers.get(name, "")
-        if len(value) != 0 or answers[name] != " ":
+        if len(value) != 0 or value != " ":
             if name in "annotations":
-                annotations = [annotation for annotation in answers[name].split(";")]
-            elif name in tw_config["add_templates"]["date_fields"]:
-                date_str = dateparser.parse(answers[name])
-                if date_str is not None:
-                    date_str = date_str.strftime("%Y-%m-%dT%H:%M:%S")
-                    parts += " " + field.replace("%s", date_str)
-            else:
+                annotations = [annotation for annotation in answers[name]]
+            elif field["type"] == "date":
+                date_value = date_parser(answers[name])
+                if date_value is not None:
+                    date_str = date_value.strftime("%Y-%m-%dT%H:%M:%S")
+                    parts += " " + field["template"].replace("%s", date_str)
+                else:
+                    print('Cannot parse date "%s"' % answers[name])
+                    return
+            elif field["type"] == "list":
                 parts += " " + " ".join(
-                    field.replace("%s", item) if item != "" else "" for item in answers[name].split(";")
+                    field["template"].replace("%s", item) if item != "" else "" for item in answers[name]
                 )
+            else:
+                parts += " " + field["template"].replace("%s", value)
     command = tw_config["add_templates"]["data"][chosen_template]["command"].replace("%s", parts)
     confirm = safe_ask(questionary.confirm("Add task?", instruction=f"\n{command}\n", style=question_style))
     if confirm:
@@ -151,7 +249,6 @@ def create_task(group):
             text=True,
             shell=True,
         )
-        print(result.stdout)
         uuid_match = uuid_compiled.search(result.stdout)
         if uuid_match:
             uuid = uuid_match.group()
@@ -234,22 +331,35 @@ def edit_template():
             questionary.form(
                 name=questionary.text("Enter field name", style=question_style, default=name),
                 template=questionary.text("Enter field template", style=question_style, default=field_template),
+                type=questionary.rawselect(
+                    "Select type", choices=["text", "list", "date"], use_jk_keys=True, style=question_style
+                ),
             )
         )
         if response is None:
             return
-        template["fields"][response["name"]] = response["template"]
+        template["fields"][response["name"]] = {"template": response["template"], "type": response["type"]}
     field_name = "placeholder"
     while field_name != "":
         field_name = safe_ask(questionary.text("Enter field name", style=question_style))
         if field_name is None:
             return
-        if field_name != "":
-            field_template = safe_ask(questionary.text("Enter field template", style=question_style))
-            if field_template is None:
-                return
-            template["fields"][field_name] = field_template
-            print("To end enter nothing")
+        field_form = safe_ask(
+            questionary.form(
+                template=questionary.text("Enter field template", style=question_style),
+                type=questionary.rawselect(
+                    "Select type of the field",
+                    choices=["text", "list", "date"],
+                    default="text",
+                    use_jk_keys=True,
+                    style=question_style,
+                ),
+            )
+        )
+        if field_form is None:
+            return
+        template["fields"][field_name] = {"template": field_form["template"], "type": field_form["type"]}
+        print("To end enter nothing")
     tw_config["add_templates"]["data"][chosen_template] = template
     with open(config_file, "w") as f:
         f.write(json.dumps(tw_config))
@@ -378,14 +488,16 @@ def view_template():
     if chosen_template is None:
         return
     header = f'[bold]Template:[/bold] {tw_config["add_templates"]["data"][chosen_template]["name"]}'
-    field_header = f'{"-"*10}Fields{"-"*10}'
+    field_header = f'{"-"*24}Fields{"-"*24}'
     rprint(
         f"""{header}
 [bold]Command:[/bold] {tw_config["add_templates"]["data"][chosen_template]["command"]}
 [bold]{field_header}[/bold]"""
     )
-    for name, field_template in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
-        rprint(f"{name.ljust(16)} | {field_template}")
+    rprint(f"{'name'.ljust(16)} | {'template'.ljust(16)} | type")
+    rprint(f"{'-'*16} | {'-'*16} | {'-'*16}")
+    for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
+        rprint(f"{name.ljust(16)} | {field['template'].ljust(16)} | {field['type']}")
 
 
 view_groups: dict[str, FunctionsGroup] = {
@@ -513,17 +625,3 @@ def delete_group_completion():
 @utils_commands.command("delete", help="Delete task, query, template, and group")
 def task_delete(name: Annotated[str, typer.Argument(autocompletion=edit_group_completion)] = "template"):
     delete_groups[name]["func"]()
-
-
-def get_preset_questions(group):
-    projects = subprocess.run("task _projects", shell=True, capture_output=True).stdout.decode().split("\n")
-    tags = subprocess.run("task _tags", shell=True, capture_output=True).stdout.decode().split("\n")
-    return {
-        "project": questionary.autocomplete(
-            "Enter project", choices=projects, style=question_style, complete_style=CompleteStyle.MULTI_COLUMN
-        ),
-        "tags": questionary.autocomplete(
-            "Enter tags", choices=tags, style=question_style, complete_style=CompleteStyle.MULTI_COLUMN
-        ),
-    }
-

@@ -9,8 +9,8 @@ runner = CliRunner()
 
 @fixture(autouse=True, scope="session")
 def setup_config():
-    # TODO(BT): For some reason, this test require running get_preset_questions
-    get_preset_questions(None)
+    # TODO(BT): For some reason, tests require running get_preset_questions
+    get_preset_questions('task', 'project')
 
 
 @fixture
