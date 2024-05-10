@@ -240,28 +240,47 @@ def create_task(group):
             else:
                 parts += " " + field["template"].replace("%s", value)
     command = tw_config["add_templates"]["data"][chosen_template]["command"].replace("%s", parts)
-    confirm = safe_ask(questionary.confirm("Add task?", instruction=f"\n{command}\n", style=question_style))
-    if confirm:
-        uuid_compiled = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
-        result = subprocess.run(
-            f"{group_mappings[group]} task rc.verbose=new-uuid add {command}",
-            capture_output=True,
-            text=True,
-            shell=True,
+    confirm = "edit"
+    while confirm == "edit":
+        confirm = safe_ask(
+            questionary.rawselect(
+                "Add task?",
+                choices=["yes", "edit", "no"],
+                default="yes",
+                instruction=f"\n{command}\n",
+                style=question_style,
+            )
         )
-        if result.stderr:
-            print(result.stderr)
-        uuid_match = uuid_compiled.search(result.stdout)
-        if uuid_match:
-            uuid = uuid_match.group()
-            if annotations:
-                for annotate in annotations:
-                    result = subprocess.run(
-                        f"{group_mappings[group]} task {uuid} annotate {annotate}",
-                        capture_output=True,
-                        text=True,
-                        shell=True,
-                    )
+        match confirm:
+            case "yes":
+                uuid_compiled = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+                result = subprocess.run(
+                    f"{group_mappings[group]} task rc.verbose=new-uuid add {command}",
+                    capture_output=True,
+                    text=True,
+                    shell=True,
+                )
+                if result.stderr:
+                    print(result.stderr)
+                uuid_match = uuid_compiled.search(result.stdout)
+                if uuid_match:
+                    uuid = uuid_match.group()
+                    if annotations:
+                        for annotate in annotations:
+                            result = subprocess.run(
+                                f"{group_mappings[group]} task {uuid} annotate {annotate}",
+                                capture_output=True,
+                                text=True,
+                                shell=True,
+                            )
+            case "edit":
+                if isinstance(command, str):
+                    command = safe_ask(questionary.text("Edit command", style=question_style, default=command))
+                else:
+                    print("Cannot edit command")
+            case "no":
+                print("Cancelled by user")
+                return
 
 
 def create_group(*_):
