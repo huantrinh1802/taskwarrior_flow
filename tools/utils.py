@@ -4,7 +4,7 @@ import re
 import shutil
 import subprocess
 from datetime import datetime
-from typing import Annotated, Callable, Literal, TypedDict
+from typing import Annotated, Callable, TypedDict
 
 import dateparser
 import questionary
@@ -170,7 +170,7 @@ def create_template(*_):
         f.write(json.dumps(tw_config))
 
 
-def create_task(group, repeat: bool = False):
+def create_task(group):
     templates = [
         questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
         for index, template in enumerate(tw_config["add_templates"]["data"])
@@ -244,11 +244,13 @@ def create_task(group, repeat: bool = False):
     if confirm:
         uuid_compiled = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
         result = subprocess.run(
-            f"{group_mappings[group]} task rc.verbose=new-uuid {command}",
+            f"{group_mappings[group]} task rc.verbose=new-uuid add {command}",
             capture_output=True,
             text=True,
             shell=True,
         )
+        if result.stderr:
+            print(result.stderr)
         uuid_match = uuid_compiled.search(result.stdout)
         if uuid_match:
             uuid = uuid_match.group()
@@ -297,8 +299,19 @@ def create_group_completion():
 def task_create(
     name: Annotated[str, typer.Argument(autocompletion=create_group_completion)] = "task",
     group: Annotated[str, typer.Option("--group", "-g", autocompletion=group_mappings_completion)] = "task",
+    repeat: Annotated[bool, typer.Option("--repeat", "-r")] = False,
 ):
-    create_groups[name]["func"](group)
+    repeating = True
+    while repeating:
+        create_groups[name]["func"](group)
+        if repeat:
+            confirm = safe_ask(questionary.confirm("Add more task?", style=question_style))
+            if confirm:
+                repeating = True
+            else:
+                repeating = False
+        else:
+            repeating = False
 
 
 def edit_template():
@@ -326,13 +339,17 @@ def edit_template():
     if response is None:
         return
     template = {"name": response["name"], "command": response["command"], "fields": {}}
-    for name, field_template in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
+    for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
         response = safe_ask(
             questionary.form(
                 name=questionary.text("Enter field name", style=question_style, default=name),
-                template=questionary.text("Enter field template", style=question_style, default=field_template),
+                template=questionary.text("Enter field template", style=question_style, default=field["template"]),
                 type=questionary.rawselect(
-                    "Select type", choices=["text", "list", "date"], use_jk_keys=True, style=question_style
+                    "Select type",
+                    choices=["text", "list", "date"],
+                    use_jk_keys=True,
+                    style=question_style,
+                    default=field["type"],
                 ),
             )
         )
@@ -344,22 +361,23 @@ def edit_template():
         field_name = safe_ask(questionary.text("Enter field name", style=question_style))
         if field_name is None:
             return
-        field_form = safe_ask(
-            questionary.form(
-                template=questionary.text("Enter field template", style=question_style),
-                type=questionary.rawselect(
-                    "Select type of the field",
-                    choices=["text", "list", "date"],
-                    default="text",
-                    use_jk_keys=True,
-                    style=question_style,
-                ),
+        if field_name != "":
+            field_form = safe_ask(
+                questionary.form(
+                    template=questionary.text("Enter field template", style=question_style),
+                    type=questionary.rawselect(
+                        "Select type of the field",
+                        choices=["text", "list", "date"],
+                        default="text",
+                        use_jk_keys=True,
+                        style=question_style,
+                    ),
+                )
             )
-        )
-        if field_form is None:
-            return
-        template["fields"][field_name] = {"template": field_form["template"], "type": field_form["type"]}
-        print("To end enter nothing")
+            if field_form is None:
+                return
+            template["fields"][field_name] = {"template": field_form["template"], "type": field_form["type"]}
+            print("To end enter nothing")
     tw_config["add_templates"]["data"][chosen_template] = template
     with open(config_file, "w") as f:
         f.write(json.dumps(tw_config))
