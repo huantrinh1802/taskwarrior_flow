@@ -154,7 +154,7 @@ def create_template(*_):
                     template=questionary.text("Enter field template", style=question_style),
                     type=questionary.rawselect(
                         "Select type of the field",
-                        choices=["text", "list", "date"],
+                        choices=["text", "list", "date", "annotation"],
                         default="text",
                         use_jk_keys=True,
                         style=question_style,
@@ -182,7 +182,7 @@ def create_task(group):
         return
     answers = {}
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
-        if field["type"] == "list":
+        if field["type"] == ["list", "annotation"]:
             answer = "placeholder"
             answers[name] = []
             while answer != "" and answer is not None:
@@ -223,7 +223,7 @@ def create_task(group):
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
         value = answers.get(name, "")
         if len(value) != 0 or value != " ":
-            if name in "annotations":
+            if field["type"] == "annotation":
                 annotations = [annotation for annotation in answers[name]]
             elif field["type"] == "date":
                 date_value = date_parser(answers[name])
@@ -365,7 +365,7 @@ def edit_template():
                 template=questionary.text("Enter field template", style=question_style, default=field["template"]),
                 type=questionary.rawselect(
                     "Select type",
-                    choices=["text", "list", "date"],
+                    choices=["text", "list", "date", "annotation"],
                     use_jk_keys=True,
                     style=question_style,
                     default=field["type"],
@@ -386,7 +386,7 @@ def edit_template():
                     template=questionary.text("Enter field template", style=question_style),
                     type=questionary.rawselect(
                         "Select type of the field",
-                        choices=["text", "list", "date"],
+                        choices=["text", "list", "date", "annotation"],
                         default="text",
                         use_jk_keys=True,
                         style=question_style,
@@ -534,7 +534,7 @@ def view_template():
     rprint(f"{'name'.ljust(16)} | {'template'.ljust(16)} | type")
     rprint(f"{'-'*16} | {'-'*16} | {'-'*16}")
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
-        rprint(f"{name.ljust(16)} | {field['template'].ljust(16)} | {field['type']}")
+        rprint(f"{name.ljust(16)} | {(field.get('template') or '').ljust(16)} | {field['type']}")
 
 
 view_groups: dict[str, FunctionsGroup] = {
