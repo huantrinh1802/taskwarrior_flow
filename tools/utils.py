@@ -159,29 +159,26 @@ def create_template(*_):
                         use_jk_keys=True,
                         style=question_style,
                     ),
+                    repeat=questionary.confirm(
+                        "Repeat field?", style=question_style, default=True, instruction="Leave blank to end"
+                    ),
                 )
             )
             if field_form is None:
                 return
-            template["fields"][field_name] = {"template": field_form["template"], "type": field_form["type"]}
+            template["fields"][field_name] = field_form
             print("To end enter nothing")
     with open(config_file, "w") as f:
         tw_config["add_templates"]["data"].append(template)
         f.write(json.dumps(tw_config))
 
 
-def create_task(group):
-    templates = [
-        questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
-        for index, template in enumerate(tw_config["add_templates"]["data"])
-    ]
-    chosen_template = safe_ask(
-        questionary.rawselect("Select template", choices=templates, use_jk_keys=True, style=question_style)
-    )
+def create_task(group, chosen_template = None, answers = {}) -> None | dict:
     if chosen_template is None:
         return
-    answers = {}
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
+        if name in answers and field.get('repeat', False):
+            continue
         if field["type"] == ["list", "annotation"]:
             answer = "placeholder"
             answers[name] = []
@@ -273,6 +270,7 @@ def create_task(group):
                                 text=True,
                                 shell=True,
                             )
+                return answers
             case "edit":
                 if isinstance(command, str):
                     command = safe_ask(questionary.text("Edit command", style=question_style, default=command))
@@ -321,16 +319,29 @@ def task_create(
     repeat: Annotated[bool, typer.Option("--repeat", "-r")] = False,
 ):
     repeating = True
-    while repeating:
-        create_groups[name]["func"](group)
-        if repeat:
-            confirm = safe_ask(questionary.confirm("Add more task?", style=question_style))
-            if confirm:
-                repeating = True
+    if name == 'task':
+        templates = [
+            questionary.Choice(title=template["name"], value=index, shortcut_key=str(index + 1))
+            for index, template in enumerate(tw_config["add_templates"]["data"])
+        ]
+        chosen_template = safe_ask(
+            questionary.rawselect("Select template", choices=templates, use_jk_keys=True, style=question_style)
+        )
+        answers = {}
+        while repeating:
+            answers = create_task(group, chosen_template, answers)
+            if answers is None:
+                repeating = False
+            elif repeat:
+                confirm = safe_ask(questionary.confirm("Add more task?", style=question_style))
+                if confirm:
+                    repeating = True
+                else:
+                    repeating = False
             else:
                 repeating = False
-        else:
-            repeating = False
+    else:
+        create_groups[name]["func"](group)
 
 
 def edit_template():
@@ -362,7 +373,7 @@ def edit_template():
         response = safe_ask(
             questionary.form(
                 name=questionary.text("Enter field name", style=question_style, default=name),
-                template=questionary.text("Enter field template", style=question_style, default=field["template"]),
+                template=questionary.text("Enter field template", style=question_style, default=field.get("template","") or ""),
                 type=questionary.rawselect(
                     "Select type",
                     choices=["text", "list", "date", "annotation"],
@@ -370,11 +381,12 @@ def edit_template():
                     style=question_style,
                     default=field["type"],
                 ),
+                repeat=questionary.confirm("Repeat field?", style=question_style, default=True),
             )
         )
         if response is None:
             return
-        template["fields"][response["name"]] = {"template": response["template"], "type": response["type"]}
+        template["fields"][response["name"]] = response
     field_name = "placeholder"
     while field_name != "":
         field_name = safe_ask(questionary.text("Enter field name", style=question_style))
@@ -391,11 +403,13 @@ def edit_template():
                         use_jk_keys=True,
                         style=question_style,
                     ),
+                    repeat=questionary.confirm("Repeat field?", style=question_style, default=True),
+
                 )
             )
             if field_form is None:
                 return
-            template["fields"][field_name] = {"template": field_form["template"], "type": field_form["type"]}
+            template["fields"][field_name] = field_form
             print("To end enter nothing")
     tw_config["add_templates"]["data"][chosen_template] = template
     with open(config_file, "w") as f:
@@ -525,16 +539,16 @@ def view_template():
     if chosen_template is None:
         return
     header = f'[bold]Template:[/bold] {tw_config["add_templates"]["data"][chosen_template]["name"]}'
-    field_header = f'{"-"*24}Fields{"-"*24}'
+    field_header = f'{"-"*33} Fields {"-"*32}'
     rprint(
         f"""{header}
 [bold]Command:[/bold] {tw_config["add_templates"]["data"][chosen_template]["command"]}
 [bold]{field_header}[/bold]"""
     )
-    rprint(f"{'name'.ljust(16)} | {'template'.ljust(16)} | type")
-    rprint(f"{'-'*16} | {'-'*16} | {'-'*16}")
+    rprint(f"{'name'.ljust(16)} | {'template'.ljust(16)} | {'type'.ljust(16)} | repeat")
+    rprint(f"{'-'*16} | {'-'*16} | {'-'*16} | {'-'*16}")
     for name, field in tw_config["add_templates"]["data"][chosen_template]["fields"].items():
-        rprint(f"{name.ljust(16)} | {(field.get('template') or '').ljust(16)} | {field['type']}")
+        rprint(f"{name.ljust(16)} | {(field.get('template') or '').ljust(16)} | {field['type'].ljust(16)} | {field.get('repeat', False)}")
 
 
 view_groups: dict[str, FunctionsGroup] = {
