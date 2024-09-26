@@ -1,5 +1,6 @@
 import re
 import subprocess
+from datetime import datetime
 
 import dateparser
 import questionary
@@ -28,14 +29,14 @@ def task_wrapper(ctx: typer.Context):
             index != len(ctx.args) - 1
             and keywords_seen
             and not func_start
-            and not arg.startswith(("+", "due:", "scheduled:", "wait:", "until:", "priority:", "recur:"))
+            and not arg.startswith(("+", "due:", "scheduled:", "wait:", "until:", "priority:", "recur:", "project:"))
         ):
             description_start = True
             description += " " + arg
             continue
         elif keywords_seen and not func_start and description_start:
             if index == len(ctx.args) - 1 and not arg.startswith(
-                ("+", "due:", "scheduled:", "wait:", "until:", "priority:", "recur:")
+                ("+", "due:", "scheduled:", "wait:", "until:", "priority:", "recur:", "project:")
             ):
                 description_start = False
                 description += " " + arg
@@ -61,9 +62,12 @@ def task_wrapper(ctx: typer.Context):
             date_match = date_function_compiled.search(func)
             if date_match:
                 parsed = dateparser.parse(date_match.groupdict("date")["date"])
-                if parsed:
-                    parsed = parsed.strftime("%Y-%m-%dT%H:%M:%S")
-                    arg = date_function_compiled.sub(parsed, func)
+                if parsed and isinstance(parsed, datetime):
+                    parsed_str = parsed.strftime("%Y-%m-%dT%H:%M:%S")
+                    if parsed_str:
+                        print(f"Invalid date format: {date_match.groupdict('date')['date']}")
+                        return
+                    arg = date_function_compiled.sub(parsed_str, func)
                 else:
                     print(f"Invalid date format: {date_match.groupdict('date')['date']}")
                     return
@@ -87,7 +91,7 @@ def task_wrapper(ctx: typer.Context):
 
 for group_name, _ in group_mappings.items():
     app.command(
-        group_name, context_settings={"allow_extra_args": True}, help=f"Run taskwarrior with the {group_name} group"
+        group_name, context_settings={"allow_extra_args": True}, help=f"Run Taskwarrior with the {group_name} group"
     )(task_wrapper)
 
 
