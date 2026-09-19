@@ -35,13 +35,12 @@ uv add anthropic   # or: uv add openai
 
 ## Configuration
 
-TWF reads its configuration from `~/.local/share/nvim/m_taskwarrior_d.json` by default. Override the path with the `TW_CONFIG` environment variable.
+TWF reads its configuration from `~/.local/share/tw_flow/config.json` by default. The file is created automatically on first run.
 
 ```json
 {
   "flow_config": {
-    "task": {"data": "~/.task",      "config": "~/.taskrc"},
-    "work": {"data": "~/.task_work", "config": "~/.taskrc"}
+    "personal": {"data": "~/.task", "config": "~/.taskrc"}
   },
   "ai": {
     "provider": "anthropic",
@@ -53,7 +52,21 @@ TWF reads its configuration from `~/.local/share/nvim/m_taskwarrior_d.json` by d
 }
 ```
 
-> **Note:** Avoid committing `TW_CONFIG` to version control if it contains API keys. Environment variables are the safer option for CI or shared machines.
+> **Note:** Avoid committing the config file to version control if it contains API keys. Environment variables are the safer option for CI or shared machines.
+
+### Using with m_taskwarrior_d.nvim
+
+If you use the [m_taskwarrior_d.nvim](https://github.com/huantrinh1802/m_taskwarrior_d.nvim) Neovim plugin, it manages its own config file. Point TWF at it by exporting `TW_CONFIG` in your shell profile (`~/.bashrc`, `~/.zshrc`, `~/.config/fish/config.fish`, etc.):
+
+```shell
+# bash / zsh
+export TW_CONFIG="$HOME/.local/share/nvim/m_taskwarrior_d.json"
+
+# fish
+set -x TW_CONFIG "$HOME/.local/share/nvim/m_taskwarrior_d.json"
+```
+
+This lets both tools share the same groups, templates, and queries.
 
 ### AI key resolution order
 
