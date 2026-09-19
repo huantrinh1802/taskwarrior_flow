@@ -4,8 +4,6 @@ import subprocess
 from datetime import datetime
 from typing import Annotated, Optional
 
-_ACTION_RE = re.compile(r"\b(mod|done|delete|start|stop|complete|annotate)\b")
-
 import dateparser
 import questionary
 import typer
@@ -14,6 +12,7 @@ from tools import group_mappings, group_mappings_completion, tw_config
 from tools.utils import question_style, safe_ask, utils_commands
 
 app = typer.Typer()
+_ACTION_RE = re.compile(r"\b(mod|done|delete|start|stop|complete|annotate)\b")
 app.add_typer(utils_commands, name="utils", help="Sub-commands for taskwarrior utilities")
 date_function_compiled = re.compile(r"@(?P<date>.*)@")
 
