@@ -43,7 +43,22 @@ Examples:
   Output: add "call John" due:friday +work
 
   Input: pick up dry cleaning and fix the bike by end of week
-  Output: add "pick up dry cleaning and fix the bike" due:eow"""
+  Output: add "pick up dry cleaning and fix the bike" due:eow
+
+  Input: mark task 5 as done
+  Output: 5 done
+
+  Input: delete task 3
+  Output: 3 delete
+
+  Input: change priority of task 7 to high
+  Output: 7 mod priority:H
+
+  Input: update due date of task 2 to next Friday
+  Output: 2 mod due:friday
+
+  Input: remove the due date from task 4
+  Output: 4 mod due:"""
 
 
 def _parse_with_anthropic(prompt: str, config_api_key: Optional[str] = None) -> str:
