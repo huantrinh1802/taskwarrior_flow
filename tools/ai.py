@@ -23,15 +23,27 @@ Common attributes:
   recur:<freq>        — recur: daily, weekly, monthly, yearly
   until:<date>        — end date for recurring tasks
 
+Rules:
+  1. The description must capture the FULL task intent. Never truncate it or split compound items.
+  2. Only extract attributes (dates, priority, project, tags) that are EXPLICITLY stated by the user.
+  3. NEVER infer tags from words in the description. Tags must be explicitly requested (e.g. "tag it as work", "+work", "#work").
+  4. Dates and times are the only things extracted from natural phrasing — everything else stays in the description.
+
 Examples:
+  Input: buy milk and body wash tomorrow
+  Output: add "buy milk and body wash" due:tomorrow
+
   Input: buy groceries tomorrow, high priority
   Output: add "buy groceries" due:tomorrow priority:H
 
   Input: schedule a team meeting every Monday
   Output: add "team meeting" recur:weekly due:monday
 
-  Input: remind me to call John next Friday tagged as work
-  Output: add "call John" due:friday +work"""
+  Input: remind me to call John next Friday, tag it as work
+  Output: add "call John" due:friday +work
+
+  Input: pick up dry cleaning and fix the bike by end of week
+  Output: add "pick up dry cleaning and fix the bike" due:eow"""
 
 
 def _parse_with_anthropic(prompt: str, config_api_key: Optional[str] = None) -> str:
