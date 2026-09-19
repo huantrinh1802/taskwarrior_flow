@@ -4,6 +4,8 @@ import subprocess
 from datetime import datetime
 from typing import Annotated, Optional
 
+_ACTION_RE = re.compile(r"\b(mod|done|delete|start|stop|complete|annotate)\b")
+
 import dateparser
 import questionary
 import typer
@@ -129,11 +131,29 @@ def ai(
     command = safe_ask(questionary.text("Command:", default=command, style=question_style))
     if not command or not command.strip():
         raise typer.Exit(0)
+    command = command.strip()
+
+    # For non-add commands, preview which tasks the filter matches
+    action_match = _ACTION_RE.search(command)
+    if action_match:
+        filter_part = command[: action_match.start()].strip()
+        if filter_part:
+            preview = subprocess.run(
+                f"{group_mappings[resolved_group]} task rc._forcecolor:on {filter_part}",
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
+            if preview.stdout.strip():
+                print(preview.stdout)
+            else:
+                typer.echo("No matching tasks found.", err=True)
+                raise typer.Exit(0)
 
     confirm = safe_ask(questionary.confirm("Execute?", style=question_style))
     if confirm:
         result = subprocess.run(
-            f"{group_mappings[resolved_group]} task rc._forcecolor:on {command.strip()}",
+            f"{group_mappings[resolved_group]} task rc._forcecolor:on {command}",
             shell=True,
             capture_output=True,
             text=True,

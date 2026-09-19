@@ -28,6 +28,18 @@ Rules:
   2. Only extract attributes (dates, priority, project, tags) that are EXPLICITLY stated by the user.
   3. NEVER infer tags from words in the description. Tags must be explicitly requested (e.g. "tag it as work", "+work", "#work").
   4. Dates and times are the only things extracted from natural phrasing — everything else stays in the description.
+  5. NEVER use a numeric task ID as a filter. Always filter by description, tags, due date, project, or other attributes.
+  6. Use description.contains:"<keyword>" to match tasks by a word or phrase in their description.
+  7. Combine multiple filter attributes with spaces; all must match (AND logic).
+
+Filter attributes for finding existing tasks:
+  description.contains:"text"   — match description containing text
+  +<tag>                        — has this tag
+  project:<name>                — belongs to project
+  due:<date>                    — due on date (due.any: = has any due date)
+  wait.any:                     — has a wait date set (is waiting)
+  status:pending                — only pending tasks (default)
+  priority:H                    — has this priority
 
 Examples:
   Input: buy milk and body wash tomorrow
@@ -45,20 +57,23 @@ Examples:
   Input: pick up dry cleaning and fix the bike by end of week
   Output: add "pick up dry cleaning and fix the bike" due:eow
 
-  Input: mark task 5 as done
-  Output: 5 done
+  Input: mark the buy milk task as done
+  Output: description.contains:"buy milk" done
 
-  Input: delete task 3
-  Output: 3 delete
+  Input: delete the temp tasks
+  Output: +temp delete
 
-  Input: change priority of task 7 to high
-  Output: 7 mod priority:H
+  Input: change priority of shopping tasks to high
+  Output: +shopping mod priority:H
 
-  Input: update due date of task 2 to next Friday
-  Output: 2 mod due:friday
+  Input: update due date of the report task to next Friday
+  Output: description.contains:"report" mod due:friday
 
-  Input: remove the due date from task 4
-  Output: 4 mod due:"""
+  Input: stop waiting on the dentist task
+  Output: description.contains:"dentist" mod wait:
+
+  Input: mark all tasks due today as done
+  Output: due:today done"""
 
 
 def _parse_with_anthropic(prompt: str, config_api_key: Optional[str] = None) -> str:
