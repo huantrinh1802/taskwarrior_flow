@@ -76,7 +76,13 @@ Examples:
   Output: due:today done"""
 
 
-def _parse_with_anthropic(prompt: str, config_api_key: Optional[str] = None) -> str:
+DEFAULT_MODELS: dict[str, str] = {
+    "anthropic": "claude-sonnet-4-6",
+    "openai": "gpt-4o-mini",
+}
+
+
+def _parse_with_anthropic(prompt: str, config_api_key: Optional[str] = None, model: Optional[str] = None) -> str:
     try:
         import anthropic
     except ImportError:
@@ -91,7 +97,7 @@ def _parse_with_anthropic(prompt: str, config_api_key: Optional[str] = None) -> 
 
     client = anthropic.Anthropic(api_key=api_key)
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=model or DEFAULT_MODELS["anthropic"],
         max_tokens=256,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
@@ -99,7 +105,7 @@ def _parse_with_anthropic(prompt: str, config_api_key: Optional[str] = None) -> 
     return message.content[0].text.strip()
 
 
-def _parse_with_openai(prompt: str, config_api_key: Optional[str] = None) -> str:
+def _parse_with_openai(prompt: str, config_api_key: Optional[str] = None, model: Optional[str] = None) -> str:
     try:
         import openai
     except ImportError:
@@ -114,7 +120,7 @@ def _parse_with_openai(prompt: str, config_api_key: Optional[str] = None) -> str
 
     client = openai.OpenAI(api_key=api_key)
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model or DEFAULT_MODELS["openai"],
         max_tokens=256,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -124,9 +130,9 @@ def _parse_with_openai(prompt: str, config_api_key: Optional[str] = None) -> str
     return response.choices[0].message.content.strip()
 
 
-def parse_nl_to_command(prompt: str, provider: Provider = "anthropic", config_api_key: Optional[str] = None) -> str:
+def parse_nl_to_command(prompt: str, provider: Provider = "anthropic", config_api_key: Optional[str] = None, model: Optional[str] = None) -> str:
     if provider == "anthropic":
-        return _parse_with_anthropic(prompt, config_api_key)
+        return _parse_with_anthropic(prompt, config_api_key, model)
     if provider == "openai":
-        return _parse_with_openai(prompt, config_api_key)
+        return _parse_with_openai(prompt, config_api_key, model)
     raise ValueError(f"Unknown provider '{provider}'. Use 'anthropic' or 'openai'")

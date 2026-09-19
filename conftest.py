@@ -27,6 +27,8 @@ TEST_CONFIG = {
         "provider": "anthropic",
         "anthropic_api_key": "",
         "openai_api_key": "",
+        "anthropic_model": "",
+        "openai_model": "",
     },
 }
 
