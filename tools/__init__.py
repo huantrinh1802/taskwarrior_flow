@@ -37,6 +37,11 @@ else:
                 "name_max_length": 14,
                 "data": [{"query": "project:Test", "name": "Test project"}, {"query": "project:Test", "name": "Test project"}],
             },
+            "ai": {
+                "provider": "anthropic",
+                "anthropic_api_key": "",
+                "openai_api_key": "",
+            },
         }
         f.write(json.dumps(tw_config))
 group_mappings = {key: f'TASKDATA={value["data"]}' for key, value in tw_config["flow_config"].items()}
