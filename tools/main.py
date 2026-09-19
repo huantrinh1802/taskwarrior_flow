@@ -105,9 +105,10 @@ def ai(
     prompt: Annotated[list[str], typer.Argument(help="Natural language task description")],
     group: Annotated[Optional[str], typer.Option("--group", "-g", help="Task group to use", autocompletion=group_mappings_completion)] = None,
     provider: Annotated[Optional[str], typer.Option("--provider", "-p", help="AI provider: anthropic or openai")] = None,
+    model: Annotated[Optional[str], typer.Option("--model", "-m", help="AI model to use (overrides config)")] = None,
 ):
     """Parse a natural language prompt into a Taskwarrior command using AI."""
-    from tools.ai import parse_nl_to_command
+    from tools.ai import DEFAULT_MODELS, parse_nl_to_command
 
     resolved_group = group or next(iter(group_mappings))
 
@@ -120,10 +121,11 @@ def ai(
     resolved_provider = provider or os.environ.get("TW_AI_PROVIDER") or ai_config.get("provider", "anthropic")
     # Env var takes precedence over config file for keys
     config_api_key = ai_config.get(f"{resolved_provider}_api_key") or None
+    resolved_model = model or os.environ.get("TW_AI_MODEL") or ai_config.get(f"{resolved_provider}_model") or DEFAULT_MODELS.get(resolved_provider)
 
     nl_prompt = " ".join(prompt)
     try:
-        command = parse_nl_to_command(nl_prompt, resolved_provider, config_api_key)  # type: ignore[arg-type]
+        command = parse_nl_to_command(nl_prompt, resolved_provider, config_api_key, resolved_model)  # type: ignore[arg-type]
     except (ImportError, ValueError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(1)
