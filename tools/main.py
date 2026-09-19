@@ -8,7 +8,7 @@ import dateparser
 import questionary
 import typer
 
-from tools import group_mappings, group_mappings_completion
+from tools import group_mappings, group_mappings_completion, tw_config
 from tools.utils import question_style, safe_ask, utils_commands
 
 app = typer.Typer()
@@ -108,15 +108,20 @@ def ai(
     from tools.ai import parse_nl_to_command
 
     resolved_group = group or next(iter(group_mappings))
-    resolved_provider = provider or os.environ.get("TW_AI_PROVIDER", "anthropic")
 
     if resolved_group not in group_mappings:
         typer.echo(f"Unknown group '{resolved_group}'. Available: {', '.join(group_mappings.keys())}", err=True)
         raise typer.Exit(1)
 
+    ai_config = tw_config.get("ai", {})
+    # Resolution order: CLI flag > env var > TW_CONFIG > default
+    resolved_provider = provider or os.environ.get("TW_AI_PROVIDER") or ai_config.get("provider", "anthropic")
+    # Env var takes precedence over config file for keys
+    config_api_key = ai_config.get(f"{resolved_provider}_api_key") or None
+
     nl_prompt = " ".join(prompt)
     try:
-        command = parse_nl_to_command(nl_prompt, resolved_provider)  # type: ignore[arg-type]
+        command = parse_nl_to_command(nl_prompt, resolved_provider, config_api_key)  # type: ignore[arg-type]
     except (ImportError, ValueError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(1)

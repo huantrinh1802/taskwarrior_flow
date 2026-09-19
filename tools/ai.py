@@ -1,5 +1,5 @@
 import os
-from typing import Literal
+from typing import Literal, Optional
 
 Provider = Literal["anthropic", "openai"]
 
@@ -34,15 +34,18 @@ Examples:
   Output: add "call John" due:friday +work"""
 
 
-def _parse_with_anthropic(prompt: str) -> str:
+def _parse_with_anthropic(prompt: str, config_api_key: Optional[str] = None) -> str:
     try:
         import anthropic
     except ImportError:
-        raise ImportError("anthropic package not installed. Run: poetry add anthropic")
+        raise ImportError("anthropic package not installed. Run: uv add anthropic")
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or config_api_key
     if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
+        raise ValueError(
+            "No Anthropic API key found.\n"
+            "Set ANTHROPIC_API_KEY env var or add 'anthropic_api_key' to the 'ai' section in TW_CONFIG."
+        )
 
     client = anthropic.Anthropic(api_key=api_key)
     message = client.messages.create(
@@ -54,15 +57,18 @@ def _parse_with_anthropic(prompt: str) -> str:
     return message.content[0].text.strip()
 
 
-def _parse_with_openai(prompt: str) -> str:
+def _parse_with_openai(prompt: str, config_api_key: Optional[str] = None) -> str:
     try:
         import openai
     except ImportError:
-        raise ImportError("openai package not installed. Run: poetry add openai")
+        raise ImportError("openai package not installed. Run: uv add openai")
 
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = os.environ.get("OPENAI_API_KEY") or config_api_key
     if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable is not set")
+        raise ValueError(
+            "No OpenAI API key found.\n"
+            "Set OPENAI_API_KEY env var or add 'openai_api_key' to the 'ai' section in TW_CONFIG."
+        )
 
     client = openai.OpenAI(api_key=api_key)
     response = client.chat.completions.create(
@@ -76,9 +82,9 @@ def _parse_with_openai(prompt: str) -> str:
     return response.choices[0].message.content.strip()
 
 
-def parse_nl_to_command(prompt: str, provider: Provider = "anthropic") -> str:
+def parse_nl_to_command(prompt: str, provider: Provider = "anthropic", config_api_key: Optional[str] = None) -> str:
     if provider == "anthropic":
-        return _parse_with_anthropic(prompt)
+        return _parse_with_anthropic(prompt, config_api_key)
     if provider == "openai":
-        return _parse_with_openai(prompt)
+        return _parse_with_openai(prompt, config_api_key)
     raise ValueError(f"Unknown provider '{provider}'. Use 'anthropic' or 'openai'")
