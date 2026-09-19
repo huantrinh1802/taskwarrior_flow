@@ -126,10 +126,14 @@ def ai(
         typer.echo(str(e), err=True)
         raise typer.Exit(1)
 
-    confirm = safe_ask(questionary.confirm("Confirm?", instruction=f"\n{command}\n", style=question_style))
+    command = safe_ask(questionary.text("Command:", default=command, style=question_style))
+    if not command or not command.strip():
+        raise typer.Exit(0)
+
+    confirm = safe_ask(questionary.confirm("Execute?", style=question_style))
     if confirm:
         result = subprocess.run(
-            f"{group_mappings[resolved_group]} task rc._forcecolor:on {command}",
+            f"{group_mappings[resolved_group]} task rc._forcecolor:on {command.strip()}",
             shell=True,
             capture_output=True,
             text=True,
