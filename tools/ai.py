@@ -13,10 +13,13 @@ Taskwarrior command syntax:
   [filter] done                       — complete a task
   [filter] delete                     — delete a task
 
-Common attributes:
-  due:<date>          — due date (tomorrow, friday, 2024-01-15, 1w, etc.)
-  wait:<date>         — hide task until date
-  scheduled:<date>    — start date
+Attributes:
+  due:<date>          — HARD DEADLINE. Task goes overdue if not completed by this date.
+                        Use ONLY when user says: "due", "by", "deadline", "must finish by", "no later than".
+  scheduled:<date>    — When you PLAN TO START or DO the task. Task is hidden before this date.
+                        Use when user says: "on", "plan to", "will do", "schedule for", a bare date with no deadline language.
+  wait:<date>         — Hide the task completely until this date (stronger than scheduled).
+                        Use when user says: "remind me", "don't show until", "after".
   priority:H|M|L      — priority (H=High, M=Medium, L=Low)
   project:<name>      — project (use dots for hierarchy: work.meetings)
   +<tag>              — add tag
@@ -27,7 +30,7 @@ Rules:
   1. The description must capture the FULL task intent. Never truncate it or split compound items.
   2. Only extract attributes (dates, priority, project, tags) that are EXPLICITLY stated by the user.
   3. NEVER infer tags from words in the description. Tags must be explicitly requested (e.g. "tag it as work", "+work", "#work").
-  4. Dates and times are the only things extracted from natural phrasing — everything else stays in the description.
+  4. due and scheduled are DIFFERENT. Do not use due: unless deadline language is explicit. A bare date ("tomorrow", "on Friday") means scheduled:.
   5. NEVER use a numeric task ID as a filter. Always filter by description, tags, due date, project, or other attributes.
   6. Use description.contains:"<keyword>" to match tasks by a word or phrase in their description.
   7. Combine multiple filter attributes with spaces; all must match (AND logic).
@@ -43,18 +46,27 @@ Filter attributes for finding existing tasks:
 
 Examples:
   Input: buy milk and body wash tomorrow
-  Output: add "buy milk and body wash" due:tomorrow
+  Output: add "buy milk and body wash" scheduled:tomorrow
 
-  Input: buy groceries tomorrow, high priority
-  Output: add "buy groceries" due:tomorrow priority:H
+  Input: call the dentist on Friday
+  Output: add "call the dentist" scheduled:friday
+
+  Input: submit the tax return by April 15
+  Output: add "submit the tax return" due:2027-04-15
+
+  Input: finish the report, deadline next Monday, high priority
+  Output: add "finish the report" due:monday priority:H
+
+  Input: buy groceries, scheduled for tomorrow, high priority
+  Output: add "buy groceries" scheduled:tomorrow priority:H
 
   Input: schedule a team meeting every Monday
-  Output: add "team meeting" recur:weekly due:monday
+  Output: add "team meeting" recur:weekly scheduled:monday
 
   Input: remind me to call John next Friday, tag it as work
-  Output: add "call John" due:friday +work
+  Output: add "call John" wait:friday +work
 
-  Input: pick up dry cleaning and fix the bike by end of week
+  Input: pick up dry cleaning and fix the bike, must be done by end of week
   Output: add "pick up dry cleaning and fix the bike" due:eow
 
   Input: mark the buy milk task as done
