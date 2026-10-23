@@ -6,6 +6,7 @@ if os.path.isfile(config_file):
     with open(config_file, "r") as f:
         tw_config = json.load(f)
 else:
+    os.makedirs(os.path.dirname(config_file) or ".", exist_ok=True)
     with open(config_file, "w") as f:
         tw_config = {
             "use_mtwd": False,
